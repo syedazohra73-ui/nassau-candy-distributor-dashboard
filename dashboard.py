@@ -1,6 +1,9 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import plotly.io as pio
+
+pio.templates.default = "plotly_white"
 
 # -----------------------------
 # Page Configuration
@@ -32,21 +35,29 @@ h2,h3{
 }
 
 div[data-testid="metric-container"]{
-    background:#ffffff;
-    border:2px solid #dbeafe;
+    background: linear-gradient(135deg,#2563eb,#1d4ed8);
     padding:20px;
-    border-radius:15px;
-    box-shadow:0px 3px 10px rgba(0,0,0,0.1);
+    border-radius:18px;
+    color:white;
+    box-shadow:0 8px 20px rgba(0,0,0,.18);
+    border:none;
+}
+
+div[data-testid="metric-container"] label{
+    color:white !important;
+    font-weight:bold;
+    font-size:16px;
+}
+
+div[data-testid="metric-container"] [data-testid="stMetricValue"]{
+    color:white !important;
+    font-size:30px;
+    font-weight:700;
 }
 
 section[data-testid="stSidebar"]{
-    background:#eff6ff;
-}
-
-.stButton>button{
-    background:#2563eb;
-    color:white;
-    border-radius:10px;
+  background:linear-gradient(180deg,#eff6ff,#dbeafe);
+    border-right:2px solid #bfdbfe;
 }
 
 footer{
@@ -59,189 +70,610 @@ footer{
 # -----------------------------
 # Load Data
 # -----------------------------
-df = pd.read_excel("Route_Summary.xlsx")
+df = pd.read_excel("Nassau Candy Distributor.xlsx")
 
+# Convert dates
+df["Order Date"] = pd.to_datetime(df["Order Date"], dayfirst=True)
+df["Ship Date"] = pd.to_datetime(df["Ship Date"], dayfirst=True)
 # -----------------------------
-# Header
+# Dashboard Title
 # -----------------------------
+# -----------------------------
+# Dashboard Title
+# -----------------------------
+
 st.markdown("""
-# 🍬 Nassau Candy Distributor Dashboard
+<h1 style="text-align:center;color:#1E3A8A;font-size:48px;font-weight:bold;">
+🍬 Nassau Candy Distributor Dashboard
+</h1>
 
-### 📊 Shipping Route & Distribution Analytics
+<h3 style="text-align:center;color:#64748B;">
+Business Intelligence & Supply Chain Analytics
+</h3>
 
-Analyze shipping routes, monitor factory performance,
-compare state-wise orders and support logistics decisions.
+<p style="text-align:center;font-size:18px;color:#475569;">
+Analyze sales, distribution, shipping performance, regional demand, and business insights in one interactive dashboard.
+</p>
 
----
-""")
-
-# -----------------------------
-# Sidebar
-# -----------------------------
-st.sidebar.title("🔎 Dashboard Filter")
-
-factory = st.sidebar.multiselect(
-    "Select Factory",
-    sorted(df["Factory"].unique()),
-    default=sorted(df["Factory"].unique())
-)
-
-filtered_df = df[df["Factory"].isin(factory)]
-
-# -----------------------------
-# KPI Cards
-# -----------------------------
-col1,col2,col3 = st.columns(3)
-
-with col1:
-    st.metric(
-        "📦 Total Orders",
-        f"{filtered_df['Orders'].sum():,}"
-    )
-
-with col2:
-    st.metric(
-        "🚚 Total Routes",
-        len(filtered_df)
-    )
-
-with col3:
-    st.metric(
-        "🏭 Active Factories",
-        filtered_df["Factory"].nunique()
-    )
+<hr>
+""", unsafe_allow_html=True)
 
 st.divider()
 
 # -----------------------------
-# Charts
+# Sidebar Filters
 # -----------------------------
-left,right = st.columns(2)
+st.sidebar.header("🔎 Dashboard Filters")
+
+# Date Range Filter
+start_date = st.sidebar.date_input(
+    "Start Date",
+    df["Order Date"].min().date()
+)
+
+end_date = st.sidebar.date_input(
+    "End Date",
+    df["Order Date"].max().date()
+)
+
+# Region Filter
+region = st.sidebar.multiselect(
+    "Region",
+    options=sorted(df["Region"].dropna().unique()),
+    default=sorted(df["Region"].dropna().unique())
+)
+
+# Division Filter
+division = st.sidebar.multiselect(
+    "Division",
+    options=sorted(df["Division"].dropna().unique()),
+    default=sorted(df["Division"].dropna().unique())
+)
+
+# Ship Mode Filter
+ship_mode = st.sidebar.multiselect(
+    "Ship Mode",
+    options=sorted(df["Ship Mode"].dropna().unique()),
+    default=sorted(df["Ship Mode"].dropna().unique())
+)
+
+# Apply Filters
+filtered_df = df[
+    (df["Order Date"] >= pd.to_datetime(start_date)) &
+    (df["Order Date"] <= pd.to_datetime(end_date)) &
+    (df["Region"].isin(region)) &
+    (df["Division"].isin(division)) &
+    (df["Ship Mode"].isin(ship_mode))
+]
+
+st.divider()
+# -----------------------------
+# Business KPIs
+# -----------------------------
+
+total_sales = filtered_df["Sales"].sum()
+total_units = filtered_df["Units"].sum()
+gross_profit = filtered_df["Gross Profit"].sum()
+total_cost = filtered_df["Cost"].sum()
+
+profit_margin = (
+    (gross_profit / total_sales) * 100
+    if total_sales > 0 else 0
+)
+
+average_order_value = (
+    total_sales / filtered_df["Order ID"].nunique()
+    if filtered_df["Order ID"].nunique() > 0 else 0
+)
+
+top_state = (
+    filtered_df.groupby("State/Province")["Sales"]
+    .sum()
+    .idxmax()
+    if not filtered_df.empty else "N/A"
+)
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.metric("💰 Total Sales", f"${total_sales:,.2f}")
+
+with col2:
+    st.metric("📦 Total Units", f"{int(total_units):,}")
+
+with col3:
+    st.metric("💵 Gross Profit", f"${gross_profit:,.2f}")
+
+col4, col5, col6 = st.columns(3)
+
+with col4:
+    st.metric("💸 Total Cost", f"${total_cost:,.2f}")
+
+with col5:
+    st.metric("📈 Profit Margin", f"{profit_margin:.2f}%")
+
+with col6:
+    st.metric("🏆 Top State", top_state)
+
+st.divider()
+# -----------------------------
+# Monthly Sales & Profit Trends
+# -----------------------------
+
+monthly_data = filtered_df.copy()
+monthly_data["Month"] = monthly_data["Order Date"].dt.to_period("M").astype(str)
+
+monthly_summary = (
+    monthly_data.groupby("Month")[["Sales", "Gross Profit"]]
+    .sum()
+    .reset_index()
+)
+
+left, right = st.columns(2)
 
 with left:
 
-    st.subheader("🏭 Orders by Factory")
+    st.subheader("📅 Monthly Sales Trend")
 
-    factory_orders = (
-        filtered_df.groupby("Factory")["Orders"]
-        .sum()
-        .sort_values(ascending=False)
+    fig = px.line(
+        monthly_summary,
+        x="Month",
+        y="Sales",
+        markers=True,
+        title="Monthly Sales"
     )
 
-    fig = px.bar(
-        x=factory_orders.index,
-        y=factory_orders.values,
-        labels={"x":"Factory","y":"Orders"},
-        color=factory_orders.values,
-        color_continuous_scale="Blues"
+    fig.update_layout(
+        title_x=0.5,
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        font=dict(size=14),
+        title_font_size=22,
+        margin=dict(l=20, r=20, t=60, b=20)
     )
 
     st.plotly_chart(fig, use_container_width=True)
 
 with right:
 
-    st.subheader("🥧 Factory Order Distribution")
+   st.subheader("📅 Monthly Profit Trend")
 
-    fig = px.pie(
-        filtered_df,
-        names="Factory",
-        values="Orders",
-        hole=.45
-    )
+fig = px.line(
+    monthly_summary,
+    x="Month",
+    y="Gross Profit",
+    markers=True,
+    title="Monthly Gross Profit"
+)
 
-    st.plotly_chart(fig, use_container_width=True)
+fig.update_layout(
+    title_x=0.5,
+    plot_bgcolor="white",
+    paper_bgcolor="white",
+    font=dict(size=14),
+    title_font_size=22,
+    margin=dict(l=20, r=20, t=60, b=20)
+)
 
+st.plotly_chart(fig, use_container_width=True)
 st.divider()
 
-# -----------------------------
-# Orders by State
-# -----------------------------
-st.subheader("📍 Orders by State")
+# =====================================================
+# Sales by Region & State
+# =====================================================
 
-state_orders = (
-    filtered_df.groupby("State/Province")["Orders"]
+left, right = st.columns(2)
+
+# -----------------------------
+# Sales by Region
+# -----------------------------
+with left:
+
+   st.subheader("🌎 Sales by Region")
+
+region_sales = (
+    filtered_df.groupby("Region")["Sales"]
     .sum()
-    .sort_values(ascending=False)
+    .reset_index()
 )
 
 fig = px.bar(
-    x=state_orders.index,
-    y=state_orders.values,
-    labels={"x":"State","y":"Orders"},
-    color=state_orders.values,
-    color_continuous_scale="Viridis"
+    region_sales,
+    x="Region",
+    y="Sales",
+    color="Sales",
+    color_continuous_scale="Blues",
+    text_auto=".2s",
+    title="Sales by Region"
+)
+
+fig.update_layout(
+    title_x=0.5,
+    xaxis_title="Region",
+    yaxis_title="Sales",
+    plot_bgcolor="white",
+    paper_bgcolor="white",
+    font=dict(size=14),
+    title_font_size=22,
+    margin=dict(l=20, r=20, t=60, b=20)
+)
+
+st.plotly_chart(fig, use_container_width=True)
+
+# -----------------------------
+# Sales by State
+# -----------------------------
+with right:
+
+    st.subheader("📍 Sales by State")
+
+state_sales = (
+    filtered_df.groupby("State/Province")["Sales"]
+    .sum()
+    .reset_index()
+    .sort_values("Sales", ascending=False)
+)
+
+fig = px.bar(
+    state_sales,
+    x="State/Province",
+    y="Sales",
+    color="Sales",
+    color_continuous_scale="Viridis",
+    text_auto=".2s",
+    title="Sales by State"
+)
+
+fig.update_layout(
+    title_x=0.5,
+    xaxis_title="State",
+    yaxis_title="Sales",
+    plot_bgcolor="white",
+    paper_bgcolor="white",
+    font=dict(size=14),
+    title_font_size=22,
+    margin=dict(l=20, r=20, t=60, b=20)
 )
 
 st.plotly_chart(fig, use_container_width=True)
 
 st.divider()
+# =====================================================
+# Sales by Division & Ship Mode Analysis
+# =====================================================
+
+left, right = st.columns(2)
 
 # -----------------------------
-# Route Summary
+# Sales by Division
 # -----------------------------
-st.subheader("📋 Route Summary")
+with left:
 
-st.dataframe(filtered_df, use_container_width=True)
+    st.subheader("🥧 Sales by Division")
+
+division_sales = (
+    filtered_df.groupby("Division")["Sales"]
+    .sum()
+    .reset_index()
+)
+
+fig = px.pie(
+    division_sales,
+    names="Division",
+    values="Sales",
+    hole=0.50,
+    title="Sales Distribution by Division"
+)
+
+fig.update_layout(
+    title_x=0.5,
+    plot_bgcolor="white",
+    paper_bgcolor="white",
+    font=dict(size=14),
+    title_font_size=22,
+    legend_title="Division",
+    margin=dict(l=20, r=20, t=60, b=20)
+)
+
+st.plotly_chart(fig, use_container_width=True)
 
 # -----------------------------
-# Download Button
+# Ship Mode Analysis
 # -----------------------------
-csv = filtered_df.to_csv(index=False)
+with right:
+
+    st.subheader("🚚 Ship Mode Analysis")
+
+ship_sales = (
+    filtered_df.groupby("Ship Mode")["Sales"]
+    .sum()
+    .reset_index()
+)
+
+fig = px.bar(
+    ship_sales,
+    x="Ship Mode",
+    y="Sales",
+    color="Sales",
+    color_continuous_scale="Plasma",
+    text_auto=".2s",
+    title="Sales by Ship Mode"
+)
+
+fig.update_layout(
+    title_x=0.5,
+    xaxis_title="Ship Mode",
+    yaxis_title="Sales",
+    plot_bgcolor="white",
+    paper_bgcolor="white",
+    font=dict(size=14),
+    title_font_size=22,
+    margin=dict(l=20, r=20, t=60, b=20)
+)
+
+st.plotly_chart(fig, use_container_width=True)
+
+st.divider()
+# -----------------------------
+# Top 10 Products
+# -----------------------------
+left, right = st.columns(2)
+
+with left:
+
+   st.subheader("🍫 Top 10 Products by Sales")
+
+top_products = (
+    filtered_df.groupby("Product Name")["Sales"]
+    .sum()
+    .sort_values(ascending=False)
+    .head(10)
+    .reset_index()
+)
+
+fig = px.bar(
+    top_products,
+    x="Sales",
+    y="Product Name",
+    orientation="h",
+    color="Sales",
+    color_continuous_scale="Blues",
+    text_auto=".2s",
+    title="Top 10 Products by Sales"
+)
+
+fig.update_layout(
+    title_x=0.5,
+    xaxis_title="Sales",
+    yaxis_title="Product",
+    plot_bgcolor="white",
+    paper_bgcolor="white",
+    font=dict(size=14),
+    title_font_size=22,
+    margin=dict(l=20, r=20, t=60, b=20),
+    yaxis={"categoryorder": "total ascending"}
+)
+
+st.plotly_chart(fig, use_container_width=True)
+
+# -----------------------------
+# Top 10 Customers
+# -----------------------------
+with right:
+
+    st.subheader("👤 Top 10 Customers")
+
+top_customers = (
+    filtered_df.groupby("Customer ID")["Sales"]
+    .sum()
+    .sort_values(ascending=False)
+    .head(10)
+    .reset_index()
+)
+
+fig = px.bar(
+    top_customers,
+    x="Customer ID",
+    y="Sales",
+    color="Sales",
+    color_continuous_scale="Greens",
+    text_auto=".2s",
+    title="Top 10 Customers by Sales"
+)
+
+fig.update_layout(
+    title_x=0.5,
+    xaxis_title="Customer ID",
+    yaxis_title="Sales",
+    plot_bgcolor="white",
+    paper_bgcolor="white",
+    font=dict(size=14),
+    title_font_size=22,
+    margin=dict(l=20, r=20, t=60, b=20)
+)
+
+st.plotly_chart(fig, use_container_width=True)
+st.divider()
+
+# -----------------------------
+# Interactive Data Table
+# -----------------------------
+st.subheader("📋 Filtered Sales Data")
+
+st.dataframe(
+    filtered_df,
+    width="stretch",
+    height=500
+)
+
+st.divider()
+# -----------------------------
+# Sales by State Map
+# -----------------------------
+st.subheader("🗺️ Sales by State (USA Map)")
+
+state_map = (
+    filtered_df.groupby("State/Province")["Sales"]
+    .sum()
+    .reset_index()
+)
+
+fig = px.choropleth(
+    state_map,
+    locations="State/Province",
+    locationmode="USA-states",
+    color="Sales",
+    scope="usa",
+    color_continuous_scale="Blues",
+    hover_name="State/Province",
+    hover_data={"Sales": ":,.2f"}
+)
+
+fig.update_layout(
+    title="Sales Distribution Across States",
+    title_x=0.5,
+    plot_bgcolor="white",
+    paper_bgcolor="white",
+    font=dict(size=14),
+    title_font_size=22,
+    margin=dict(l=20, r=20, t=60, b=20)
+)
+
+st.plotly_chart(fig, use_container_width=True)
+
+st.divider()
+# =====================================================
+# Download Buttons
+# =====================================================
+
+st.subheader("📥 Download Filtered Data")
+
+# CSV Download
+csv = filtered_df.to_csv(index=False).encode("utf-8")
 
 st.download_button(
-    label="📥 Download Filtered Data (CSV)",
+    label="⬇ Download CSV",
     data=csv,
-    file_name="Filtered_Route_Summary.csv",
+    file_name="Filtered_Sales.csv",
     mime="text/csv"
 )
 
-st.divider()
+# Excel Download
+filtered_df.to_excel("Filtered_Sales.xlsx", index=False)
 
-# -----------------------------
-# Factory Performance
-# -----------------------------
-st.subheader("🏆 Factory Performance")
-
-performance = (
-    filtered_df.groupby("Factory")["Orders"]
-    .sum()
-    .sort_values(ascending=False)
-)
-
-st.table(performance)
+with open("Filtered_Sales.xlsx", "rb") as file:
+    st.download_button(
+        label="⬇ Download Excel",
+        data=file,
+        file_name="Filtered_Sales.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
 st.divider()
 
-# -----------------------------
+# =====================================================
 # Project Summary
-# -----------------------------
+# =====================================================
+
 st.subheader("📌 Project Summary")
 
 st.markdown("""
-This dashboard helps businesses to:
+### 🚀 Business Intelligence Dashboard Features
 
-✅ Monitor shipping performance
+✅ Interactive Date Range Filter
 
-✅ Compare factory-wise order distribution
+✅ Region Filter
 
-✅ Analyze state-wise demand
+✅ Ship Mode Filter
 
-✅ Improve logistics planning
+✅ Division Filter
 
-✅ Support supply chain decision making
+✅ Real-Time KPI Cards
 
-### Technologies Used
+✅ Monthly Sales Trend
+
+✅ Monthly Profit Trend
+
+✅ Sales by Region
+
+✅ Sales by State
+
+✅ Sales by Division
+
+✅ Ship Mode Analysis
+
+✅ Top Products Analysis
+
+✅ Download Filtered Data (CSV & Excel)
+
+---
+
+### 🛠 Technologies Used
 
 - Python
-- Pandas
 - Streamlit
-- Plotly
+- Pandas
+- Plotly Express
 - Microsoft Excel
+
+---
+
+This dashboard helps monitor sales, logistics, distribution performance, and business insights using interactive visualizations.
 """)
 
 st.divider()
 
-st.success("✔ Dashboard Developed Successfully")
+# =====================================================
+# Professional Footer
+# =====================================================
 
-st.caption("Developed by Arbeen | BCA Data Analytics Project")
-st.caption("Nassau Candy Distributor Dashboard")
+st.markdown("---")
+
+footer = """
+<div style="
+    background: linear-gradient(90deg,#2563eb,#1e40af);
+    padding:25px;
+    border-radius:15px;
+    text-align:center;
+    color:white;
+">
+
+<h2>🍬 Nassau Candy Distributor Dashboard</h2>
+
+<h4>Business Intelligence & Sales Analytics Dashboard</h4>
+
+<hr style="border:1px solid rgba(255,255,255,0.3);">
+
+<p>
+📊 Interactive Analytics |
+📈 Real-Time KPIs |
+📦 Sales Insights |
+🚚 Distribution Analytics
+</p>
+
+<p>
+Developed using ❤️ Python • Streamlit • Pandas • Plotly
+</p>
+
+</div>
+"""
+
+st.markdown(footer, unsafe_allow_html=True)
+
+st.markdown("")
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.info("💰 Total Sales Analysis")
+
+with col2:
+    st.success("📦 Distribution Insights")
+
+with col3:
+    st.warning("📈 Business Intelligence")
+
+st.markdown("---")
+
+st.caption("© 2026 Nassau Candy Distributor Dashboard")
+st.caption("Developed by Syeda Zohra | BCA Data Analytics Project")
