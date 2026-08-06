@@ -208,9 +208,9 @@ monthly_summary = (
     .sum()
     .reset_index()
 )
-
-left, right = st.columns(2)
-
+# st.write(monthly_summary.dtypes)
+# st.write(monthly_summary.head())
+left, right = st.columns([1, 1], gap="large")
 with left:
 
     st.subheader("📅 Monthly Sales Trend")
@@ -224,38 +224,42 @@ with left:
     )
 
     fig.update_layout(
-        title_x=0.5,
-        plot_bgcolor="white",
-        paper_bgcolor="white",
-        font=dict(size=14),
-        title_font_size=22,
-        margin=dict(l=20, r=20, t=60, b=20)
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
-
-with right:
-
-   st.subheader("📅 Monthly Profit Trend")
-
-fig = px.line(
-    monthly_summary,
-    x="Month",
-    y="Gross Profit",
-    markers=True,
-    title="Monthly Gross Profit"
-)
-
-fig.update_layout(
     title_x=0.5,
     plot_bgcolor="white",
     paper_bgcolor="white",
     font=dict(size=14),
     title_font_size=22,
-    margin=dict(l=20, r=20, t=60, b=20)
+    margin=dict(l=20, r=20, t=60, b=20),
+    height=350
 )
 
-st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True)
+
+with right:
+
+    st.subheader("📅 Monthly Profit Trend")
+
+    fig = px.line(
+        monthly_summary,
+        x="Month",
+        y="Gross Profit",
+        markers=True,
+        title="Monthly Profit"
+    )
+
+    fig.update_layout(
+    title_x=0.5,
+    plot_bgcolor="white",
+    paper_bgcolor="white",
+    font=dict(size=14),
+    title_font_size=22,
+    margin=dict(l=20, r=20, t=60, b=20),
+    height=350
+)
+
+    st.plotly_chart(fig, use_container_width=True)
+
+st.divider()
 st.divider()
 
 # =====================================================
