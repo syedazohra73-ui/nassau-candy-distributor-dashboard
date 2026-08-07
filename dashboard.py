@@ -70,7 +70,10 @@ footer{
 # -----------------------------
 # Load Data
 # -----------------------------
-df = pd.read_excel("Nassau Candy Distributor.xlsx")
+df = pd.read_excel(
+    "Nassau Candy Distributor.xlsx",
+    dtype={"Postal Code": str}
+)
 
 # Convert dates
 df["Order Date"] = pd.to_datetime(df["Order Date"], dayfirst=True)
